@@ -407,7 +407,7 @@ for(r in 2:nrow(NGU_per_q_day)) {
   if(NGU_per_q_day$q_day_end[r] <= campaign_start) {
     NGU_per_q_day$NGU_if_no_campaign[r] <- NGU_per_q_day$NGU_actual[r]
   } else {
-    NGU_per_q_day$NGU_if_no_campaign[r] <- NGU_per_q_day$NGU_if_no_campaign[r-1]*NGU_per_q_day$NGU_benchmark[r]/NGU_per_q_day$NGU_benchmark[r-1]
+    NGU_per_q_day$NGU_if_no_campaign[r] <- sum(NGU_per_hour$NGU_if_no_campaign[(r*6-5):(r*6)])
   }
 }
 
@@ -480,29 +480,29 @@ NGU_plot_per_q_day <- ggplot(data = NGU_per_q_day) +
         panel.grid.major = element_line(colour = "grey75"),
         panel.grid.minor = element_line(colour = "grey75"))
 
-### Table of uplift in NGUs
-# Create table row names
-table_names <- "Total uplift in NGUs"
-for(d in 1:analysis_period) {
-  table_names <- c(table_names, paste0("Uplift day ",d))
-}
-table_names <- c(table_names, "Cost of campaign", "eCPI")
+### Tables with results
+# table of comparison between benchmarks and actual NGUs
+NGU_table <- cbind(NGU_per_day[,c(1,2)],
+                   paste0(wday(NGU_per_day$day_start, label = TRUE), "/", wday(NGU_per_day$day_end, label = TRUE)),
+                   round(NGU_per_day[,4]),round(NGU_per_day[,5]),
+                   round(pmax(NGU_per_day[,4]-NGU_per_day[,5],0)),
+                   round(NGU_per_day[,6]),
+                   round(pmax(NGU_per_day[,4]-NGU_per_day[,6],0)))[NGU_per_day$days_since_campaign>=0,]
 
-NGU_output_table <- data.frame(rep(0, length(table_names)), row.names = table_names)
-colnames(NGU_output_table) <- paste(country, platform, sep = "_")
+colnames(NGU_table) <- c("day_start", "day_end", "weekday", "NGU_actual", "NGU_benchmark(other_countries)", "uplift(cf_other_countries)",
+                         "NGU_benchmark(earlier_period)", "uplift(cf_earlier_period)")
 
-# calculate figures
-# Total uplift NGUs
-total_uplift_NGUs <- sum(NGU_per_day$NGU_actual[NGU_per_day$days_since_campaign >= 0])-sum(NGU_per_day$NGU_if_no_campaign[NGU_per_day$days_since_campaign >= 0])
-# Uplift per day
-uplift_per_day_NGUs <- sapply(1:analysis_period, function(d) max(0, sum(NGU_per_day$NGU_actual[NGU_per_day$days_since_campaign >= (d-1) & NGU_per_day$days_since_campaign < d])-sum(NGU_per_day$NGU_if_no_campaign[NGU_per_day$days_since_campaign >= (d-1) & NGU_per_day$days_since_campaign < d])))
+# table with eCPI from both benchmark methods
+NGU_total_uplift_bm1 <- sum(NGU_table$`uplift(cf_other_countries)`)
+NGU_total_uplift_bm2 <- sum(NGU_table$`uplift(cf_earlier_period)`)
+eCPI_bm1 <- cost_of_campaign/NGU_total_uplift_bm1
+eCPI_bm2 <- cost_of_campaign/NGU_total_uplift_bm2
 
-# Inserting values into table
-NGU_output_table[,1] <- c(format(round(total_uplift_NGUs)),
-                         round(uplift_per_day_NGUs),
-                         round(cost_of_campaign),
-                         cost_of_campaign/total_uplift_NGUs)
-
+table_names <- c("Cost of campaign", "Uplift cf other countries benchmark", "eCPI cf other countries benchmark",
+                 "Uplift cf earlier period benchmark", "eCPI cf earlier period benchmark")
+NGU_eCPI <- data.frame(rep(0, length(table_names)), row.names = table_names)
+NGU_eCPI[,1] <- c(cost_of_campaign, NGU_total_uplift_bm1, eCPI_bm1,
+                  NGU_total_uplift_bm2, eCPI_bm2)
 
 
 ##############################################################
@@ -873,7 +873,7 @@ for(r in 2:nrow(AUs_per_q_day)) {
   if(AUs_per_q_day$q_day_end[r] <= campaign_start) {
     AUs_per_q_day$AUs_if_no_campaign[r] <- AUs_per_q_day$AUs_actual[r]
   } else {
-    AUs_per_q_day$AUs_if_no_campaign[r] <- AUs_per_q_day$AUs_if_no_campaign[r-1]*AUs_per_q_day$AUs_benchmark[r]/AUs_per_q_day$AUs_benchmark[r-1]
+    AUs_per_q_day$AUs_if_no_campaign[r] <- sum(AUs_per_hour$AUs_if_no_campaign[(r*6-5):(r*6)])
   }
 }
 
@@ -947,27 +947,16 @@ AUs_plot_per_q_day <- ggplot(data = AUs_per_q_day) +
         panel.grid.minor = element_line(colour = "grey75"))
 
 ### Table of uplift in AUs
-# Create table row names
-table_names <- "Total uplift in AUs"
-for(d in 1:analysis_period) {
-  table_names <- c(table_names, paste0("Uplift day ",d))
-}
-table_names <- c(table_names, "Cost of campaign")
+# table of comparison between benchmarks and actual NGUs
+AUs_table <- cbind(AUs_per_day[,c(1,2)],
+                   paste0(wday(AUs_per_day$day_start, label = TRUE), "/", wday(AUs_per_day$day_end, label = TRUE)),
+                   round(AUs_per_day[,4]), round(AUs_per_day[,5]),
+                   round(pmax(AUs_per_day[,4]-AUs_per_day[,5],0)),
+                   round(AUs_per_day[,10]),
+                   round(pmax(AUs_per_day[,4]-AUs_per_day[,10],0)))[AUs_per_day$days_since_campaign>=0,]
 
-AUs_output_table <- data.frame(rep(0, length(table_names)), row.names = table_names)
-colnames(AUs_output_table) <- paste(country, platform, sep = "_")
-
-# calculate figures
-# Total uplift AUs
-total_uplift_AUs <- sum(AUs_per_day$AUs_actual[AUs_per_day$days_since_campaign >= 0])-sum(AUs_per_day$AUs_if_no_campaign[AUs_per_day$days_since_campaign >= 0])
-# Uplift per day
-uplift_per_day_AUs <- sapply(1:analysis_period, function(d) max(0, sum(AUs_per_day$AUs_actual[AUs_per_day$days_since_campaign >= (d-1) & AUs_per_day$days_since_campaign < d])-sum(AUs_per_day$AUs_if_no_campaign[AUs_per_day$days_since_campaign >= (d-1) & AUs_per_day$days_since_campaign < d])))
-
-# Inserting values into table
-AUs_output_table[,1] <- c(format(round(total_uplift_AUs)),
-                      round(uplift_per_day_AUs),
-                      round(cost_of_campaign))
-
+colnames(AUs_table) <- c("day_start", "day_end", "weekday", "AUs_actual", "AUs_benchmark(other_countries)", "uplift(cf_other_countries)",
+                         "AUs_benchmark(earlier_period)", "uplift(cf_earlier_period)")
 
 
 ###########################################################
@@ -1274,36 +1263,36 @@ for(r in 2:nrow(revenues_per_q_day)) {
   if(revenues_per_q_day$q_day_end[r] <= campaign_start) {
     revenues_per_q_day$revenues_if_no_campaign[r] <- revenues_per_q_day$revenues_actual[r]
   } else {
-    revenues_per_q_day$revenues_if_no_campaign[r] <- revenues_per_q_day$revenues_if_no_campaign[r-1]*revenues_per_q_day$revenues_benchmark[r]/revenues_per_q_day$revenues_benchmark[r-1]
+    revenues_per_q_day$revenues_if_no_campaign[r] <- sum(revenues_per_hour$revenues_if_no_campaign[(r*6-5):(r*6)])
   }
 }
 
 # Add in benchmark 2 column (based on same country over a pre campaign period)
-NGU_per_q_day$NGU_benchmark2 <- rep(0, nrow(NGU_per_q_day))
-for(r in 1:nrow(NGU_per_q_day)) {
-  if(NGU_per_q_day$q_day_end[r] <= campaign_start) {
-    NGU_per_q_day$NGU_benchmark2[r] <- NGU_per_q_day$NGU_actual[r]
+revenues_per_q_day$revenues_benchmark2 <- rep(0, nrow(revenues_per_q_day))
+for(r in 1:nrow(revenues_per_q_day)) {
+  if(revenues_per_q_day$q_day_end[r] <= campaign_start) {
+    revenues_per_q_day$revenues_benchmark2[r] <- revenues_per_q_day$revenues_actual[r]
   } else {
-    NGU_per_q_day$NGU_benchmark2[r] <- sum(NGU_per_hour$NGU_benchmark2[(r*6-5):(r*6)])
+    revenues_per_q_day$revenues_benchmark2[r] <- sum(revenues_per_hour$revenues_benchmark2[(r*6-5):(r*6)])
   }
 }
 
 # Add time since campaign column
 revenues_per_q_day$days_since_campaign <- (revenues_per_q_day$q_day_start - as.POSIXct(campaign_start))/(24*60*60)
 
-
 # OUTPUT ------------------------------------------------------------------------------------------------------------------------
 ### Plot benchmark vs actual revenues
 # For hourly analysis (Youtube)
 revenues_plot_per_hour <- ggplot(data = revenues_per_hour) +
   geom_line(aes(x = revenues_per_hour$time_since_campaign, y = revenues_per_hour$revenues_actual, colour = "Actual"), size = 0.7) +
-  geom_line(aes(x = revenues_per_hour$time_since_campaign, y = revenues_per_hour$revenues_if_no_campaign, colour = "Benchmark"), size = 0.7) +
+  geom_line(aes(x = revenues_per_hour$time_since_campaign, y = revenues_per_hour$revenues_if_no_campaign, colour = "Benchmark (other countries)"), size = 0.7) +
+  geom_line(aes(x = revenues_per_hour$time_since_campaign, y = revenues_per_hour$revenues_benchmark2, colour = "Benchmark (earlier period)"), size = 0.7) +
   xlab("Time since campaign (hours)") +
   ylab("revenues") +
   scale_x_continuous(breaks = seq(as.integer(min(revenues_per_hour$time_since_campaign)), as.integer(max(revenues_per_hour$time_since_campaign))+1, 24)) +
   scale_colour_manual("",
-                      breaks = c("Actual", "Benchmark"),
-                      values = c("Actual"="seagreen3", "Benchmark"="orange")) +
+                      breaks = c("Actual", "Benchmark (other countries)", "Benchmark (earlier period)"),
+                      values = c("Actual"="seagreen3", "Benchmark (other countries)"="orange", "Benchmark (earlier period)"="salmon")) +
   theme(legend.position = "top", legend.background = element_rect(fill = "grey90"), legend.key = element_rect(fill = "grey90"),
         plot.background = element_rect(fill = "grey90"),
         panel.background = element_rect(fill = "grey90"),
@@ -1313,12 +1302,13 @@ revenues_plot_per_hour <- ggplot(data = revenues_per_hour) +
 # For daily analysis (TV)
 revenues_plot_per_day <- ggplot(data = revenues_per_day) +
   geom_line(aes(x = revenues_per_day$days_since_campaign, y = revenues_per_day$revenues_actual, colour = "Actual"), size = 0.7) +
-  geom_line(aes(x = revenues_per_day$days_since_campaign, y = revenues_per_day$revenues_if_no_campaign, colour = "Benchmark"), size = 0.7) +
+  geom_line(aes(x = revenues_per_day$days_since_campaign, y = revenues_per_day$revenues_if_no_campaign, colour = "Benchmark (other countries)"), size = 0.7) +
+  geom_line(aes(x = revenues_per_day$days_since_campaign, y = revenues_per_day$revenues_benchmark2, colour = "Benchmark (earlier period)"), size = 0.7) +
   xlab("Time since campaign (days)") +
   ylab("revenues") +
   scale_colour_manual("",
-                      breaks = c("Actual", "Benchmark"),
-                      values = c("Actual"="seagreen3", "Benchmark"="orange")) +
+                      breaks = c("Actual", "Benchmark (other countries)", "Benchmark (earlier period)"),
+                      values = c("Actual"="seagreen3", "Benchmark (other countries)"="orange", "Benchmark (earlier period)"="salmon")) +
   theme(legend.position = "top", legend.background = element_rect(fill = "grey90"), legend.key = element_rect(fill = "grey90"),
         plot.background = element_rect(fill = "grey90"),
         panel.background = element_rect(fill = "grey90"),
@@ -1328,18 +1318,18 @@ revenues_plot_per_day <- ggplot(data = revenues_per_day) +
 # For quarter day analysis
 revenues_plot_per_q_day <- ggplot(data = revenues_per_q_day) +
   geom_line(aes(x = revenues_per_q_day$days_since_campaign, y = revenues_per_q_day$revenues_actual, colour = "Actual"), size = 0.7) +
-  geom_line(aes(x = revenues_per_q_day$days_since_campaign, y = revenues_per_q_day$revenues_if_no_campaign, colour = "Benchmark"), size = 0.7) +
+  geom_line(aes(x = revenues_per_q_day$days_since_campaign, y = revenues_per_q_day$revenues_if_no_campaign, colour = "Benchmark (other countries)"), size = 0.7) +
+  geom_line(aes(x = revenues_per_q_day$days_since_campaign, y = revenues_per_q_day$revenues_benchmark2, colour = "Benchmark (earlier period)"), size = 0.7) +
   xlab("Time since campaign (days)") +
   ylab("revenues") +
   scale_colour_manual("",
-                      breaks = c("Actual", "Benchmark"),
-                      values = c("Actual"="seagreen3", "Benchmark"="orange")) +
+                      breaks = c("Actual", "Benchmark (other countries)", "Benchmark (earlier period)"),
+                      values = c("Actual"="seagreen3", "Benchmark (other countries)"="orange", "Benchmark (earlier period)"="salmon")) +
   theme(legend.position = "top", legend.background = element_rect(fill = "grey90"), legend.key = element_rect(fill = "grey90"),
         plot.background = element_rect(fill = "grey90"),
         panel.background = element_rect(fill = "grey90"),
         panel.grid.major = element_line(colour = "grey75"),
         panel.grid.minor = element_line(colour = "grey75"))
-
 
 ### Table of uplift in revenues
 # Create table row names
@@ -1363,25 +1353,6 @@ revenues_output_table[,1] <- c(format(round(total_uplift_revenues)),
                       round(uplift_per_day_revenues),
                       round(cost_of_campaign),
                       total_uplift_revenues - cost_of_campaign)
-
-NGU_plot_per_hour
-NGU_plot_per_q_day
-NGU_plot_per_day
-NGU_output_table
-
-AUs_plot_per_hour
-AUs_plot_per_q_day
-AUs_plot_per_day
-AUs_output_table
-
-revenues_plot_per_hour
-revenues_plot_per_q_day
-revenues_plot_per_day
-revenues_output_table
-
-
-
-
 
 
 

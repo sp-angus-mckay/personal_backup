@@ -1,3 +1,5 @@
+-WHERE I GOT TO - created AUs table, need to create revenues table and do further analysis on AUs and revenues uplift, then validate with marketing stats
+
 -Should count actual NGUs etc according to Madrid time? Problem then is making sure the benchmark is calculated over the same departs
 
 -Could create a ‘list’ if user wants to select multiple countries to aggregate?? Aggregation may be important depending on how costs are segregated
@@ -14,3 +16,4 @@
 
 -Could add an ‘if 0 then 1’ or ‘if 0 then take prev. number’ or something to the benchmark calculation to stop it breaking if it happens to be 0 on the campaign start hour/day/q_day
 
+-Not sure if the way of rolling forward benchmark by same % change in benchmark is the best way as it can lead to quite different outcomes when looking at different time periods
