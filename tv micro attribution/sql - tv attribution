@@ -1,0 +1,33 @@
+--table used in r script
+SELECT date_register, register_ip_timezone, user_id
+FROM dragoncity.t_user
+WHERE (date_register) >= '2016-09-20 11:04:00'
+AND (date_register) <= '2016-10-01 11:04:00'
+AND user_category <> 'hacker' AND user_category = 'player' 
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND register_platform = 'android'
+AND register_ip_country <> 'US'
+LIMIT 200;
+
+SELECT COUNT(user_id)
+FROM dragoncity.t_user
+WHERE date_register >= '2016-09-20 11:04:00'
+AND date_register <= '2016-10-01 11:04:00'
+AND user_category <> 'hacker' AND user_category = 'player' 
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND register_platform = 'android'
+AND register_ip_country <> 'US'
+LIMIT 200;
+
+--testing
+SELECT date_register, register_ip_timezone, user_id
+FROM monstercity.t_user
+WHERE (date_register+register_ip_timezone) >= '2016-12-17 01:00:00'
+AND (date_register+register_ip_timezone) <= '2017-02-10 23:59:59'
+AND user_category <> 'hacker' AND user_category = 'player' 
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND (register_platform = 'ios' or register_platform = 'android')
+AND register_ip_country = 'US'
+LIMIT 200;
+
+

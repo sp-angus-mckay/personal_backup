@@ -1,0 +1,59 @@
+
+SELECT * FROM t_user
+WHERE user_id = 3153901674807774640
+LIMIT 100;
+
+SELECT * FROM mlp_ltv_output
+WHERE user_id = 3153901674807774640
+LIMIT 100;
+
+
+
+--setting up query to use in r script to pull off all users who registered on particular date
+SELECT DISTINCT register_source_type FROM t_user LIMIT 100;
+SELECT users.user_id, date_register, register_platform, register_ip_country, ltv_actual, predicted_category, ltv_median
+FROM      (SELECT user_id, date_register, register_platform, register_ip_country
+          FROM t_user
+          WHERE date_register > convert(datetime, '2016-07-16')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-07-16'))
+          AND register_platform = 'android'
+          AND register_source_type = 'organic') users
+LEFT JOIN (SELECT user_id, sum(amount_gross) as ltv_actual
+          FROM t_transaction
+          WHERE date_register > convert(datetime, '2016-07-16')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-07-16')) 
+          AND datetime <= DATEADD(day, 180, convert(datetime, '2016-07-16'))
+          GROUP BY user_id) actual_ltv
+ON users.user_id = actual_ltv.user_id
+LEFT JOIN (SELECT *
+          FROM      (SELECT DISTINCT user_id,
+                                     FIRST_VALUE(scored_labels) OVER (PARTITION BY user_id ORDER BY datetime DESC ROWS UNBOUNDED PRECEDING) AS scored_labels
+                    FROM mlp_ltv_output
+                    WHERE datetime >= convert(datetime, '2016-07-16')
+                    AND datetime <= DATEADD(day, 7, convert(datetime, '2016-07-16'))) mlp
+          LEFT JOIN (SELECT predicted_category, ltv_median
+                    FROM aux_category_ltv_median
+                    WHERE date_start = convert(datetime, '2016-05-03')) aux
+          ON mlp.scored_labels = aux.predicted_category) predicted_ltv
+ON users.user_id = predicted_ltv.user_id
+ORDER BY ltv_actual
+LIMIT 100;
+
+--testing for user 3151213926601288688
+SELECT date_register, register_platform, register_ip_country
+FROM t_user
+WHERE user_id = 3151213926601288688;
+
+SELECT sum(amount_gross) as ltv_actual
+FROM t_transaction
+WHERE datetime <= DATEADD(day, 180, convert(datetime, '2016-07-01'))
+AND user_id = 3151213926601288688;
+
+SELECT * FROM mlp_ltv_output
+WHERE user_id = 3151213926601288688; -- scored_label 1 on 8/7/16
+
+SELECT *
+FROM aux_category_ltv_median
+WHERE date_start = convert(datetime, '2016-05-03'); -- ltv_median 4.79
+
+SELECT * FROM aux_category_ltv_median ORDER BY date_start DESC LIMIT 100;

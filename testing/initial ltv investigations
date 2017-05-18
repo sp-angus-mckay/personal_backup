@@ -1,0 +1,96 @@
+--World Chef
+--investigating ltv prediction table
+--notes: 14.68m users, but only 13.96m distinct user ids?, predicted revenue 6.89m
+SELECT DISTINCT ltv_prd FROM t_ltv180_predicted LIMIT 10;
+SELECT count(user_id) FROM t_ltv180_predicted;
+SELECT sum(ltv_prd) FROM t_ltv180_predicted;
+SELECT count(user_id) FROM (SELECT DISTINCT user_id FROM t_ltv180_predicted);
+
+--investigating t_user table
+--notes: 26.1m users, revenue_va_predicted 2.14m, revenue_ow_predicted 0, revenues_dollars_net 14.3m
+--paying users 1.79m, i.e. just over 1%
+SELECT DISTINCT register_source FROM t_user LIMIT 10;
+SELECT count(user_id) FROM t_user;
+SELECT sum(revenue_va_predicted), sum(revenue_ow_predicted) FROM t_user;
+SELECT sum(revenues_dollars_net) FROM t_user;
+SELECT count(user_id) FROM t_user WHERE revenues_16w > 0;
+
+
+--joining revenues from t_user table to ltv prediction table
+SELECT t_ltv180_predicted.user_id, t_ltv180_predicted.ltv_prd, t_user.revenues_1d, t_user.revenues_3d, t_user.revenues_1w, t_user.revenues_2w, t_user.revenues_4w, t_user.revenues_8w, t_user.revenues_12w, t_user.revenues_16w
+FROM t_ltv180_predicted
+LEFT JOIN t_user ON t_ltv180_predicted.user_id = t_user.user_id
+ORDER BY revenues_16w DESC
+LIMIT 10;
+
+
+--sql query used in r script for modelling ltv
+select rank() over (order by date (date_register_ios) desc) d_cohort,
+             date (date_register_ios) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+from restaurantcity.t_user
+group by d_date
+limit 20;
+
+
+--looking at ltv prediction tables
+SELECT DISTINCT datetime FROM mlp_ltv_output ORDER BY datetime DESC LIMIT 24;
+SELECT count(user_id), datetime FROM mlp_ltv_output GROUP BY datetime ORDER BY datetime DESC;
+SELECT * FROM aux_category_ltv_median ORDER BY date_start DESC LIMIT 24;
+
+
+--setting up query to use in r script for comparing prediction to actual ltv for paying users
+--actual ltv
+SELECT user_id, date_register, platform, ip_country, sum(amount_gross) as ltv_actual
+FROM t_transaction
+WHERE date_register > convert(datetime, '2016-07-01')
+AND date_register < convert(datetime, '2016-07-02') 
+AND datetime <= DATEADD(day, 180, convert(datetime, '2016-07-01'))
+GROUP BY user_id, date_register, platform, ip_country;
+
+--predicted ltv
+SELECT user_id, scored_labels, predicted_category, ltv_median, datetime
+FROM (SELECT * FROM mlp_ltv_output
+      WHERE datetime >= convert(datetime, '2016-07-01')
+      AND datetime <= DATEADD(day, 7, convert(datetime, '2016-07-01'))) mlp
+LEFT JOIN (SELECT * FROM aux_category_ltv_median
+          WHERE date_start = convert(datetime, '2016-07-08')) aux
+ON mlp.scored_labels = aux.predicted_category
+LIMIT 10;
+
+--combining
+--setting up query to use in r script to pull off all users who registered on particular date
+
+SELECT users.user_id, date_register, register_platform, register_ip_country, ltv_actual, predicted_category, ltv_median
+FROM            (SELECT user_id, date_register, register_platform, register_ip_country
+                FROM t_user
+                WHERE date_register > convert(datetime, '2016-07-01')
+                AND date_register < convert(datetime, '2016-07-02')) users
+LEFT JOIN       (SELECT user_id, sum(amount_gross) as ltv_actual
+                FROM t_transaction
+                WHERE date_register > convert(datetime, '2016-07-01')
+                AND date_register < convert(datetime, '2016-07-02') 
+                AND datetime <= DATEADD(day, 180, convert(datetime, '2016-07-01'))
+                GROUP BY user_id) actual_ltv
+ON users.user_id = actual_ltv.user_id
+LEFT JOIN (SELECT *
+          FROM      (SELECT DISTINCT user_id,
+                                     FIRST_VALUE(scored_labels) OVER (PARTITION BY user_id ORDER BY datetime DESC ROWS UNBOUNDED PRECEDING) AS scored_labels
+                    FROM mlp_ltv_output
+                    WHERE datetime >= convert(datetime, '2016-07-01')
+                    AND datetime <= DATEADD(day, 7, convert(datetime, '2016-07-01'))) mlp
+          LEFT JOIN (SELECT predicted_category, ltv_median
+                    FROM aux_category_ltv_median
+                    WHERE date_start = convert(datetime, '2016-07-08')) aux
+          ON mlp.scored_labels = aux.predicted_category) predicted_ltv
+ON users.user_id = predicted_ltv.user_id
+ORDER BY ltv_actual
+LIMIT 100;
+
+
+      
+--testing for a user 3124073259666052142 who should have score labels of 2,2,1 on 2,3,8 July
+SELECT * FROM mlp_ltv_output
+WHERE user_id = 3124073259666052142;
+
+3151213926601288688

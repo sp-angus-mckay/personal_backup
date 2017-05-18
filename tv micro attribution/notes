@@ -1,0 +1,28 @@
+For TV attribution want to know:
+- how long effects last for
+- size of effect
+
+From http://wywy.com/news/how-tv-campaign-tracking-works/ :
+- 80% of hits occur in first 90 seconds
+- 95% come within 5 mins
+- exponentially decaying lift
+
+charts and info:
+Response curves
+CPI, VTR per daypart, channel
+Impact curves in terms of NGUs
+
+Important things are CPI, VTR and absolute number of viewers
+
+ideas:
+- do some analysis to test attribution to each channel? Thinking to do each minute as a row with number of users viewed advert within last 15 mins for each channel, daytime, nighttime indicators, 
+
+- must be some longer lasting effect to advertising as well, than just immediate installs?
+
+-the rlm doesn’t really give sensible results, could do more here? Actually daytime gives ok results
+
+
+General:
+- takes number of new game users over period when marketing campaign is run, compares this to number of new game users when no marketing campaign.
+
+- for each ‘spot’ it looks at the time of the spot and finds all other spots within 15 mins before and afterwards. It calculates the NGUs for each minute since the spot and ratios this by the ‘ContactsMen’ of the spot to the ContactsMen of all spots within the 15 minutes before

@@ -1,0 +1,493 @@
+---
+title: "World Chef - LTV Extrapolated"
+author: "Sociapoint - Strategic Analytics - Ricard Martinez"
+date: "26 de abril de 2016"
+output: pdf_document
+---
+
+# WORLD CHEF ANDROID
+## This document contains the LTV Extrapolated for World Chef. The analysis contains the 180 Days extrapolation for:
+
+###- All Marketing data without Facebook
+###- The results are based on the Logarithmic regression based on the RPI (Revenues per Install).
+###- Only using data of the 6 previous months.
+
+###- All marketing countries (US,UK,CA,AU,DE,FR)
+
+```{r, echo =FALSE}
+#Connecting to the database
+#install.packages("RPostgreSQL")
+library(RPostgreSQL)
+library(DBI)
+library(ggplot2)
+drv <- dbDriver("PostgreSQL")
+spdb <- dbConnect(
+  drv,
+  host = "sp-rc.cm7gsqupavgd.us-east-1.redshift.amazonaws.com",
+  port = "5439",
+  dbname = "datawarehouse",
+  user = "rmartinez",
+  password = "Shishishi0"
+)
+```
+\newpage
+
+# WORLD CHEF ANDROID US
+## WC - ANDROID - US - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_US_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'US'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_US_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_US_marketing_not_fb);
+Data <- data_wc_android_US_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_US_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - US - Marketing w/o Facebook
+
+### RESULTS
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+#### EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```
+
+\newpage
+
+# WORLD CHEF ANDROID GB
+## WC - ANDROID - GB - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_GB_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'GB'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_GB_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_GB_marketing_not_fb);
+Data <- data_wc_android_GB_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_GB_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - GB - Marketing w/o Facebook
+### RESULTS
+
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+####EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```
+
+\newpage
+
+# WORLD CHEF ANDROID CA
+## WC - ANDROID - CA - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_CA_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'CA'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_CA_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_CA_marketing_not_fb);
+Data <- data_wc_android_CA_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_CA_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - CA - Marketing w/o Facebook
+### RESULTS
+
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+####EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```
+
+\newpage
+
+# WORLD CHEF ANDROID AU
+## WC - ANDROID - AU - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_AU_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'AU'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_AU_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_AU_marketing_not_fb);
+Data <- data_wc_android_AU_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_AU_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - AU - Marketing w/o Facebook
+### RESULTS
+
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+####EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```
+
+\newpage
+
+# WORLD CHEF ANDROID FR
+## WC - ANDROID - FR - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_FR_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'FR'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_FR_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_FR_marketing_not_fb);
+Data <- data_wc_android_FR_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_FR_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - FR - Marketing w/o Facebook
+### RESULTS
+
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+####EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```
+
+\newpage
+
+# WORLD CHEF ANDROID DE
+## WC - ANDROID - DE - Marketing w/o Facebook
+
+### SQL CODE
+```{r, echo=TRUE}
+sql_wc_android_DE_marketing_not_fb = "
+       select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_android) desc) d_cohort,
+             date (date_register_android) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from restaurantcity.t_user
+      where date_register_android is not null
+      and   date_register_android >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'DE'
+      and   LOWER (register_source) not like '%facebook%'
+      group by d_date
+      order by d_date desc)
+order by 1 asc"
+```
+
+### CHART
+```{r, echo=FALSE}
+data_wc_android_DE_marketing_not_fb <- dbGetQuery(spdb,sql_wc_android_DE_marketing_not_fb);
+Data <- data_wc_android_DE_marketing_not_fb;
+
+nls_fit <- nls(rpi~a+d_cohort^b, Data, start = list(a = 1, b = 1))
+predicted<-predict(nls_fit,newdata=list(d_cohort=seq(1,365,by=1)), interval="prediction")
+
+Data <- data_wc_android_DE_marketing_not_fb
+Data$logCohort<-log(Data$d_cohort)
+model<-lm(rpi ~ logCohort, data = Data)
+plot(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n", type="n")
+for(x in seq(0,180, by=5)) abline(v=x, col="grey")
+for(x in seq(0,as.integer(max(Data$rpi))+1,by=0.25)) abline(h=x, col="grey")
+points(1:nrow(Data), Data$rpi, xlim=c(0,180), ylim=c(0,max(Data$rpi)), pch=16, xlab="Days since register", ylab="RPI + LTV Extrapolated", xaxt="n",yaxt="n")
+axis(1,seq(0,180,by=5),seq(0,180,by=5), cex.axis=0.6)
+axis(2,seq(0,as.integer(max(Data$rpi))+1,by=0.25),seq(0,as.integer(max(Data$rpi))+1,by=0.25), cex.axis=0.6)
+v180d <- predict(model, newdata = data.frame(logCohort = log(1:365)))
+lines(1:180, v180d[1:180], col="blue", lwd=2)
+lines(1:180, predicted[1:180], col = "red", lwd=2)
+linearCoef<-round(model$coefficients, digits=2)
+expCoef<-round(coefficients(nls_fit),digits=2)
+rsquaredLog<-round(summary(model)$r.squared,digits=2)
+rsquaredExp<-round(summary(lm(Data$rpi ~ predicted[1:nrow(Data)]))$r.squared, digits=2)
+legend("topright",legend=c(paste0("y = ", linearCoef[1], " + ", linearCoef[2],"*ln(x)\nR-squared: ", rsquaredLog, "\n"), paste0("y = ", expCoef[1], " + ","x^",expCoef[2],"\nR-squared: ", rsquaredExp,"\n")),lty=1,col=c("blue","red"),lwd=2, cex = 0.6,bg ="white" )
+
+```
+\newpage
+
+## WC - ANDROID - DE - Marketing w/o Facebook
+### RESULTS
+
+
+#### LOGARITHMIC
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredLog)
+cat("Formula: ", model$coefficients[1], " + ", model$coefficients[2],"ln(x) ",sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", v180d[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", v180d[180])
+cat("LTV Extrapolated 365 Days: ", v180d[365])
+```
+
+
+####EXPONENTIAL
+```{r, echo=FALSE}
+cat("R-squared : ", rsquaredExp)
+cat("Formula: ", "y = ", expCoef[1], " + ","x^",expCoef[2],sep="")
+cat("LTV Extrapolated ", nrow(Data), " Days: ", predicted[nrow(Data)], sep="")
+cat("LTV Extrapolated 180 Days: ", predicted[180])
+cat("LTV Extrapolated 365 Days: ", predicted[365])
+```

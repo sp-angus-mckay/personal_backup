@@ -1,0 +1,226 @@
+--choosing which countries and register source to use
+SELECT register_source, COUNT(DISTINCT user_id) AS user_count
+FROM t_user
+WHERE date_register > '2016-09-01'
+AND date_register < '2016-10-01'
+AND (register_platform = 'android' OR register_platform = 'ios')
+AND register_ip_country = 'US'
+GROUP BY register_source
+ORDER BY user_count DESC
+LIMIT 1000;
+--top five are vungle, adcolony, applifier, resultsmedia, google adwords
+SELECT register_ip_country, COUNT(*) AS user_count
+FROM t_user 
+WHERE date_register > '2016-03-01'
+AND date_register < '2016-09-01'
+AND (register_platform = 'android' OR register_platform = 'ios')
+GROUP BY register_ip_country
+ORDER BY user_count DESC
+LIMIT 1000;
+--top five are US, BR, MX, VN, TH
+
+
+--setting up queries to use in r script
+
+--total spend per day for users registered in Mar-16 to Aug-16 (but only looking at revenues up to Aug-16)
+SELECT days_since_register, SUM(amount_gross) as total_income
+FROM      (SELECT user_id, date(date_register) AS day_register, DATEDIFF(d, date(date_register), '2016-08-31') cohort, register_platform, register_ip_country, register_source
+          FROM t_user
+          WHERE date_register > '2016-03-01'
+          AND date_register < '2016-09-01'
+          AND register_platform = 'android'
+          AND register_ip_country = 'BR'
+          AND lower(register_source) = 'google adwords'
+          AND user_category = 'player') tu
+LEFT JOIN (SELECT user_id, DATEDIFF(d, date_register, datetime) AS days_since_register, days_from_register, amount_gross, datetime
+          FROM t_transaction
+          WHERE datetime < '2016-09-01') tt
+ON tu.user_id = tt.user_id
+GROUP BY days_since_register
+ORDER BY days_since_register
+LIMIT 500;
+
+--count users who registered at each date
+SELECT COUNT(DISTINCT tu.user_id), active_days
+FROM      (SELECT user_id, date_register, DATEDIFF(d, date(date_register), '2016-08-31') active_days, register_platform, register_ip_country, register_source
+          FROM t_user
+          WHERE date_register > '2016-03-01'
+          AND date_register < '2016-09-01'
+          AND register_platform = 'android'
+          AND register_ip_country <> 'US'
+          AND lower(register_source) = 'adcolony'
+          AND user_category = 'player') tu
+LEFT JOIN (SELECT user_id, DATEDIFF(d, date_register, datetime) AS days_since_register, days_from_register, amount_gross, datetime
+          FROM t_transaction
+          WHERE datetime < '2016-09-01') tt
+ON tu.user_id = tt.user_id
+GROUP BY active_days
+ORDER BY active_days;
+
+--average spend per day for users registered in Sep-16
+SELECT days_since_register,
+        sum(amount_gross)/(SELECT COUNT(DISTINCT user_id)
+                                FROM t_user
+                                WHERE date_register > '2016-09-01'
+                                AND date_register < '2016-10-01'
+                                AND register_platform = 'android'
+                                AND register_ip_country = 'US'
+                                AND lower(register_source) = 'applifier'
+                                AND user_category = 'player') AS avg_spend,
+        (SELECT COUNT(DISTINCT user_id)
+                                FROM t_user
+                                WHERE date_register > '2016-09-01'
+                                AND date_register < '2016-10-01'
+                                AND register_platform = 'android'
+                                AND register_ip_country = 'US'
+                                AND lower(register_source) = 'applifier'
+                                AND user_category = 'player') AS total_users
+FROM      (SELECT user_id, date_register, register_platform, register_ip_country, register_source
+          FROM t_user
+          WHERE date_register > '2016-09-01'
+          AND date_register < '2016-10-01'
+          AND register_platform = 'android'
+          AND register_ip_country = 'US'
+          AND lower(register_source) = 'applifier'
+          AND user_category = 'player') tu
+LEFT JOIN (SELECT user_id, DATEDIFF(d, date_register, datetime) AS days_since_register, days_from_register, amount_gross, datetime
+          FROM t_transaction) tt
+ON tu.user_id = tt.user_id
+GROUP BY days_since_register
+ORDER BY days_since_register
+LIMIT 500;
+
+--user category for users who registered on a specific date
+SELECT users.user_id, date_register, ltv_actual, predicted_category, ltv_median
+FROM      (SELECT user_id, date_register
+          FROM t_user
+          WHERE date_register > convert(datetime, '2016-09-05')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-09-05'))
+          AND register_platform = 'android'
+          AND register_ip_country = 'US'
+          AND lower(register_source) = 'mobilda'
+          AND user_category = 'player') users
+LEFT JOIN (SELECT user_id, sum(amount_gross) as ltv_actual
+          FROM t_transaction
+          WHERE date_register > convert(datetime, '2016-09-05')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-09-05')) 
+          AND datetime <= DATEADD(day, 180, convert(datetime, '2016-09-05'))
+          GROUP BY user_id) actual_ltv
+ON users.user_id = actual_ltv.user_id
+LEFT JOIN (SELECT *
+          FROM      (SELECT DISTINCT user_id,
+                                     FIRST_VALUE(scored_labels) OVER (PARTITION BY user_id ORDER BY datetime DESC ROWS UNBOUNDED PRECEDING) AS scored_labels
+                    FROM mlp_ltv_output
+                    WHERE datetime >= convert(datetime, '2016-09-05')
+                    AND datetime <= DATEADD(day, 7, convert(datetime, '2016-09-05'))) mlp
+          LEFT JOIN (SELECT predicted_category, ltv_median
+                    FROM aux_category_ltv_median
+                    WHERE date_start = convert(datetime, '2016-07-08')) aux
+          ON mlp.scored_labels = aux.predicted_category) predicted_ltv
+ON users.user_id = predicted_ltv.user_id
+ORDER BY ltv_median
+LIMIT 1000;
+
+
+--testing--
+SELECT user_id, date_register
+          FROM t_user
+          WHERE date_register > convert(datetime, '2016-09-01')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-09-01'))
+          AND register_platform = 'android'
+          AND register_ip_country = 'US'
+          AND lower(register_source) = 'applifier'
+          AND user_category = 'player';
+
+--generate table which will then be used to group by days_from_register to get spend per days since register
+SELECT *
+FROM      (SELECT user_id, date(date_register) AS day_register, DATEDIFF(d, date(date_register), '2016-08-31') cohort, register_platform, register_ip_country, register_source
+          FROM t_user
+          WHERE date_register > '2016-03-01'
+          AND date_register < '2016-09-01'
+          AND register_platform = 'android'
+          AND register_ip_country = 'MX'
+          AND lower(register_source) = 'vungle') tu
+LEFT JOIN (SELECT user_id, DATEDIFF(d, date_register, datetime) AS days_since_register, days_from_register, amount_gross, datetime
+          FROM t_transaction
+          WHERE datetime < '2016-09-01'
+          ) tt
+ON tu.user_id = tt.user_id
+ORDER BY day_register
+LIMIT 5000;
+
+SELECT COUNT(DISTINCT user_id)
+FROM t_user
+WHERE date_register > '2016-03-01'
+AND date_register < '2016-09-01'
+AND register_platform = 'ios'
+AND register_ip_country = 'FR'
+AND lower(register_source) = 'adcolony';
+
+SELECT * FROM mlp_ltv_output WHERE user_id = 3163445330660044110 LIMIT 100;
+SELECT sum(amount_gross) FROM t_transaction WHERE user_id = 3163445330660044110 LIMIT 100;
+
+
+--Ricard code from prev analysis - problem is this looks at all cohorts for only users on a particular date
+select d_cohort,
+       rpi
+from (select rank() over (order by date (date_register_ios) desc) d_cohort,
+             date (date_register_ios) d_date,
+             nvl (sum(revenues_dollars_net) / count(distinct user_id),0) as rpi
+      from t_user
+      WHERE   date_register >= '2016-01-14'
+      and   migrate_date_orphaned is null
+      and   register_source_type = 'marketing'
+      and   register_ip_country = 'US'
+      group by d_date
+      order by d_date desc)
+order by 1 asc
+limit 100;
+
+
+--investigating ML users who are predicted category 2 but actually non-payers
+
+SELECT * FROM t_transaction WHERE user_id = 3152495009029422788;
+SELECT * FROM mlp_ltv_output WHERE user_id = 3152495009029422788;
+SELECT * FROM t_user WHERE user_id = 3152495009029422788;
+
+SELECT * FROM t_transaction WHERE user_id = 3152420877826547282;
+SELECT * FROM mlp_ltv_output WHERE user_id = 3152420877826547282;
+SELECT * FROM t_user WHERE user_id = 3152420877826547282;
+
+and user_category in ('player','hacker')
+and (migrate_date_orphaned is null or migrate_destination_id is null);
+
+
+SELECT date_register, user_id, migrate_destination_id, migrate_date_orphaned, revenues_dollars_net FROM t_user WHERE (user_id = 3107980406624926564 or user_id = 100001385087535 )limit 2;
+
+
+SELECT users.user_id, date_register, register_platform, register_ip_country, ltv_actual, predicted_category, ltv_median
+FROM      (SELECT user_id, date_register, register_platform, register_ip_country
+          FROM monstercity.t_user
+          WHERE date_register > convert(datetime, '2016-07-08')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-07-08'))
+          AND register_platform = 'android'
+          AND register_ip_country = 'US') users
+LEFT JOIN (SELECT user_id, sum(amount_gross) as ltv_actual
+          FROM monstercity.t_transaction
+          WHERE date_register > convert(datetime, '2016-07-08')
+          AND date_register < DATEADD(day, 1, convert(datetime, '2016-07-08'))
+          AND datetime <= DATEADD(day, 180, convert(datetime, '2016-07-08'))
+          GROUP BY user_id) actual_ltv
+ON users.user_id = actual_ltv.user_id
+LEFT JOIN (SELECT *
+            FROM        (SELECT DISTINCT user_id,
+                         FIRST_VALUE(scored_labels) OVER (PARTITION BY user_id ORDER BY datetime DESC ROWS UNBOUNDED PRECEDING) AS scored_labels
+                         FROM monstercity.mlp_ltv_output
+                         WHERE datetime >= convert(datetime, '2016-07-08')
+                         AND datetime <= DATEADD(day, 90, convert(datetime, '2016-07-08'))) mlp
+            LEFT JOIN   (SELECT predicted_category, ltv_median
+                         FROM monstercity.aux_category_ltv_median
+                         WHERE date_start = convert(datetime, '2016-05-03')) aux
+            ON mlp.scored_labels = aux.predicted_category) predicted_ltv
+ON users.user_id = predicted_ltv.user_id
+WHERE predicted_category = 2
+LIMIT 300;
+
+

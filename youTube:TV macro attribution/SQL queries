@@ -1,0 +1,179 @@
+--NGU query
+SELECT date_register, register_ip_timezone, user_id
+FROM monstercity.t_user
+WHERE (date_register) >= '2016-09-20 11:04:00'
+AND (date_register) <= '2016-10-01 11:04:00'
+AND user_category <> 'hacker' AND user_category = 'player' 
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND register_platform = 'android'
+AND register_ip_country <> 'US'
+AND (migrate_date_orphaned IS NULL OR datediff(s,date_register,migrate_date_orphaned) > 86400)
+AND (is_tester IS NULL OR is_tester != 'true')
+AND user_category <> 'bot'
+LIMIT 2000;
+
+
+--Active users query
+SELECT SUM(active_users)
+FROM
+(SELECT  min(log_session_start.datetime) as datetime,
+        log_session_start.ip_timezone,
+        count(distinct log_session_start.user_id) as active_users,
+        datepart(y, log_session_start.datetime) as year,
+        datepart(mm, log_session_start.datetime) as month,
+        datepart(d, log_session_start.datetime) as day
+FROM monstercity.log_session_start
+LEFT JOIN monstercity.t_user
+ON log_session_start.user_id = t_user.user_id
+WHERE log_session_start.datetime >= '2016-07-15 12:29:00'
+AND log_session_start.datetime < '2016-08-23 12:29:00'
+AND user_category <> 'hacker' AND user_category = 'player'
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND platform = 'ios'
+AND register_ip_country IN ('CA', 'GB', 'AU', 'FR', 'US')
+AND (is_tester is null or is_tester != 'true')
+AND t_user.user_category <> 'bot'
+GROUP BY log_session_start.ip_timezone, year, month, day)
+LIMIT 200;
+
+
+--Revenues query
+SELECT t_transaction.datetime, t_transaction.ip_timezone, COALESCE(t_transaction.amount_gross*0.7, 0) AS net_value
+FROM t_transaction
+LEFT JOIN log_session_start
+ON t_transaction.session_id = log_session_start.session_id
+AND t_transaction.user_id = log_session_start.user_id
+WHERE t_transaction.datetime >= '2016-07-15 12:29:00'
+AND t_transaction.datetime < '2016-08-23 12:29:00'
+AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
+AND t_transaction.platform = 'ios'
+AND t_transaction.ip_country <> 'DE'
+AND date_add('d', -1, '2016-07-15 12:29:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2016-08-23 12:29:00'
+LIMIT 200;
+
+
+
+--testing
+SELECT *
+FROM monstercity.log_session_start
+WHERE platform = 'ios'
+LIMIT 200;
+
+SELECT log_session_start.ip_timezone,
+        count(log_session_start.user_id) as active_users,
+        datepart(y, log_session_start.datetime) as year,
+        datepart(mm, log_session_start.datetime) as month,
+        datepart(d, log_session_start.datetime) as day,
+        datepart(hour, log_session_start.datetime) as hour,
+        datepart(m, log_session_start.datetime) as minute
+FROM monstercity.log_session_start
+LEFT JOIN monstercity.t_user
+ON log_session_start.user_id = t_user.user_id
+WHERE log_session_start.datetime >= '2016-07-15 12:29:00'
+AND log_session_start.datetime < '2016-08-23 12:29:00'
+AND user_category <> 'hacker' AND user_category = 'player'
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND platform = 'ios'
+AND register_ip_country IN ('CA', 'GB', 'AU', 'FR', 'US')
+AND (is_tester is null or is_tester != 'true')
+AND t_user.user_category <> 'bot'
+GROUP BY log_session_start.ip_timezone, year, month, day, hour, minute
+LIMIT 200;
+
+SELECT log_session_start.ip_timezone,
+        count(log_session_start.user_id) as active_users,
+        datepart(y, log_session_start.datetime) as year,
+        datepart(mm, log_session_start.datetime) as month,
+        datepart(d, log_session_start.datetime) as day,
+        datepart(hour, log_session_start.datetime) + log_session.start.ip_timezone as hour,
+        datepart(m, log_session_start.datetime) as minute
+FROM monstercity.log_session_start
+LEFT JOIN monstercity.t_user
+ON log_session_start.user_id = t_user.user_id
+WHERE log_session_start.datetime >= '2016-07-15 12:29:00'
+AND log_session_start.datetime < '2016-08-23 12:29:00'
+AND user_category <> 'hacker' AND user_category = 'player'
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND platform = 'ios'
+AND register_ip_country IN ('CA', 'GB', 'AU', 'FR', 'US')
+AND (is_tester is null or is_tester != 'true')
+AND t_user.user_category <> 'bot'
+LIMIT 200;
+
+SELECT count(log_session_start.datetime)
+FROM monstercity.log_session_start
+LEFT JOIN monstercity.t_user
+ON log_session_start.user_id = t_user.user_id
+WHERE log_session_start.datetime >= '2016-07-15 12:29:00'
+AND log_session_start.datetime < '2016-08-23 12:29:00'
+AND user_category <> 'hacker' AND user_category = 'player'
+AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND platform = 'ios'
+AND register_ip_country IN ('CA', 'GB', 'AU', 'FR', 'US')
+AND (is_tester is null or is_tester != 'true')
+AND t_user.user_category <> 'bot'
+LIMIT 200;
+
+SELECT count(t_transaction.datetime)
+FROM t_transaction
+LEFT JOIN log_session_start
+ON t_transaction.session_id = log_session_start.session_id
+AND t_transaction.user_id = log_session_start.user_id
+WHERE t_transaction.datetime >= '2016-08-30 10:29:00'
+AND t_transaction.datetime < '2016-09-10 10:29:00'
+AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
+AND t_transaction.platform = 'ios'
+AND t_transaction.ip_country <> 'DE'
+AND date_add('d', -1, '2016-08-30 10:29:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2016-09-10 10:29:00'
+LIMIT 200;
+
+--data lab NGUs query
+SELECT COUNT(DISTINCT t_user.user_id) AS value,
+       1494799200 AS TIMESTAMP
+FROM t_user
+WHERE t_user.date_register_ios >= '2017-05-14 22:00'
+AND   t_user.date_register_ios < '2017-05-15 22:00'
+AND   t_user.register_platform = 'ios'
+AND   (t_user.migrate_date_orphaned IS NULL OR datediff(s,t_user.date_register,t_user.migrate_date_orphaned) > 86400)
+AND   (is_tester IS NULL OR is_tester != 'true')
+AND   t_user.user_category <> 'bot'
+ORDER BY value DESC
+LIMIT 200;
+
+--data lab active users query
+SELECT COUNT(DISTINCT log_session_start.user_id) / AVG(log_session_start.sample_ratio) AS value,
+        1494799200 as timestamp
+FROM log_session_start
+LEFT JOIN t_user
+ON log_session_start.user_id = t_user.user_id
+WHERE log_session_start.datetime >= '2017-05-14 22:00'
+AND log_session_start.datetime < '2017-05-15 22:00'
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND platform = 'ios'
+AND (is_tester is null or is_tester != 'true')
+AND t_user.user_category <> 'bot'
+ORDER BY value DESC
+LIMIT 200;
+
+--data lab revenues query
+SELECT COALESCE(SUM(t_transaction.amount_gross*0.7), 0) AS value,
+        1494799200 as timestamp
+FROM t_transaction
+LEFT JOIN log_session_start
+ON t_transaction.session_id = log_session_start.session_id
+AND t_transaction.user_id = log_session_start.user_id
+WHERE t_transaction.datetime >= '2017-05-14 22:00'
+AND t_transaction.datetime < '2017-05-15 22:00'
+AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
+AND t_transaction.platform = 'ios'
+AND date_add('d', -1, '2017-05-14 22:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2017-05-15 22:00'
+ORDER BY value DESC
+LIMIT 200;
+

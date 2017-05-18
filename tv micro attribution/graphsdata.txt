@@ -1,0 +1,25 @@
+ GRANULAR OVERVIEW: 
+Total Spend: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+  26368.54    5558.90   34166.74   62093.36    5636.65    1138.23 
+
+Number of Spots: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+       103        163         77         84        178        340 
+
+TV Attributed NGUs: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+      5798       4045       6001       5418       4846       5711 
+
+Impacts: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+  17528201    8199566   12200459   28781664    6061754    1783637 
+
+eCPIs: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+ 4.5478682  1.3742645  5.6935077 11.4605685  1.1631552  0.1993049 
+
+Install Rate: 
+       HD1        LCI        NT1        TMC  TV Breizh Ushuaia TV 
+0.03307812 0.04933188 0.04918667 0.01882448 0.07994386 0.32018847 
+
