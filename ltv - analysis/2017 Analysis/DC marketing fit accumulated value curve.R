@@ -25,7 +25,7 @@ spdb <- dbConnect(
 
 game_schema = 'dragoncity' # (restaurantcity, monstercity, dragoncity)
 
-### SQL query functions - see bottom of script for neat version of queries!
+### SQL query functions - SEE BOTTOM OF SCRIPT FOR NEAT VERSIONS OF QUERIES!!!
 # to obtain total spend per day for users who registered between 01/03/16 and 31/08/16 (only taking revenues up to end of September)
 SQL_total_spend_per_day <- function(register_platform, register_country, register_source) {
   paste("SELECT days_since_register, SUM(amount_gross) AS total_income FROM (SELECT user_id, date(date_register) AS day_register, DATEDIFF(d, date(date_register), '2016-08-31') cohort, register_platform, register_ip_country, register_source FROM ", game_schema,".t_user WHERE date_register > '2016-03-01' AND date_register < '2016-09-01' AND register_platform = '",register_platform,"' AND register_ip_country = '",register_country,"' AND lower(register_source) = '",register_source,"' AND user_category = 'player') tu LEFT JOIN (SELECT user_id, DATEDIFF(d, date_register, datetime) AS days_since_register, days_from_register, amount_gross, datetime FROM ", game_schema,".t_transaction WHERE datetime < '2016-09-01') tt ON tu.user_id = tt.user_id GROUP BY days_since_register ORDER BY days_since_register LIMIT 500;", sep="")
@@ -44,7 +44,7 @@ SQL_get_avg_spend_per_day_test_dates <- function(register_platform, register_cou
 ################################################
 ### function to return prediction, actual and prediction as % of actual
 ################################################
-# step by step version of function at end of script
+# step-by-step version of function at end of script
 
 cumulative_spend_fn <- function(daily_data, t) {
   sum(daily_data[1:t], na.rm = TRUE)

@@ -1,16 +1,31 @@
 --NGU query
 SELECT date_register, register_ip_timezone, user_id
-FROM monstercity.t_user
-WHERE (date_register) >= '2016-09-20 11:04:00'
-AND (date_register) <= '2016-10-01 11:04:00'
+FROM dragoncity.t_user
+WHERE (date_register) >= '2016-06-23 00:00:00'
+AND (date_register) <= '2016-07-01 00:00:00'
 AND user_category <> 'hacker' AND user_category = 'player' 
 AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
 AND register_platform = 'android'
-AND register_ip_country <> 'US'
+AND register_ip_country = 'ES'
 AND (migrate_date_orphaned IS NULL OR datediff(s,date_register,migrate_date_orphaned) > 86400)
 AND (is_tester IS NULL OR is_tester != 'true')
 AND user_category <> 'bot'
 LIMIT 2000;
+
+SELECT COUNT(DISTINCT t_user.user_id) AS value,
+       1494799200 AS TIMESTAMP
+FROM t_user
+WHERE convert_timezone('UTC','Europe/Madrid',t_user.date_register_ios) >= '2015-12-25 00:00'
+AND   convert_timezone('UTC','Europe/Madrid',t_user.date_register_ios) < '2015-12-26 00:00'
+AND   t_user.register_platform = 'android'
+--AND user_category <> 'hacker' AND user_category = 'player'
+AND   (t_user.migrate_date_orphaned IS NULL OR datediff(s,t_user.date_register,t_user.migrate_date_orphaned) > 86400)
+AND   (is_tester IS NULL OR is_tester != 'true')
+AND   t_user.user_category <> 'bot'
+AND   (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
+AND   register_ip_country = 'CA'
+ORDER BY value DESC
+LIMIT 200;
 
 
 --Active users query
@@ -25,8 +40,8 @@ FROM
 FROM monstercity.log_session_start
 LEFT JOIN monstercity.t_user
 ON log_session_start.user_id = t_user.user_id
-WHERE log_session_start.datetime >= '2016-08-01 10:29:00'
-AND log_session_start.datetime < '2016-09-01 10:29:00'
+WHERE log_session_start.datetime >= '2016-08-01 00:00:00'
+AND log_session_start.datetime < '2016-09-01 00:00:00'
 AND user_category <> 'hacker' AND user_category = 'player'
 AND (register_source is NULL or lower(register_source) like '%organic%' or register_source = '')
 AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
@@ -39,21 +54,43 @@ LIMIT 200;
 
 
 --Revenues query
+SELECT convert_timezone('UTC','Europe/Madrid', t_transaction.datetime) as datetime, t_transaction.ip_timezone, COALESCE(t_transaction.amount_gross*0.7, 0) AS net_value
+FROM t_transaction
+LEFT JOIN log_session_start
+ON t_transaction.session_id = log_session_start.session_id
+AND t_transaction.user_id = log_session_start.user_id
+LEFT JOIN t_user
+ON t_transaction.user_id = t_user.user_id
+WHERE t_transaction.datetime >= '2016-04-29 22:00:00'
+AND t_transaction.datetime < '2016-04-30 22:00:00'
+--AND t_user.user_category <> 'hacker' AND t_user.user_category = 'player'
+AND (t_user.register_source is NULL or lower(t_user.register_source) like '%organic%' or t_user.register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
+AND t_transaction.platform = 'ios'
+AND t_transaction.ip_country = 'CA'
+AND (t_user.is_tester is null or t_user.is_tester != 'true')
+AND t_user.user_category <> 'bot'
+AND date_add('d', -1, '2016-04-29 22:00:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2016-04-30 22:00:00'
+LIMIT 200;
+
 SELECT t_transaction.datetime, t_transaction.ip_timezone, COALESCE(t_transaction.amount_gross*0.7, 0) AS net_value
 FROM t_transaction
 LEFT JOIN log_session_start
 ON t_transaction.session_id = log_session_start.session_id
 AND t_transaction.user_id = log_session_start.user_id
+LEFT JOIN t_user
+ON t_transaction.user_id = t_user.user_id
 WHERE t_transaction.datetime >= '2016-07-15 12:29:00'
 AND t_transaction.datetime < '2016-08-23 12:29:00'
+AND t_user.register_source in ('youtuber_vanossgaming') 
 AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
 AND t_transaction.platform = 'ios'
 AND t_transaction.ip_country <> 'DE'
 AND date_add('d', -1, '2016-07-15 12:29:00') <= log_session_start.datetime
 AND log_session_start.datetime <= '2016-08-23 12:29:00'
 LIMIT 200;
-
-
 
 --testing
 SELECT *
@@ -137,8 +174,8 @@ LIMIT 200;
 SELECT COUNT(DISTINCT t_user.user_id) AS value,
        1494799200 AS TIMESTAMP
 FROM t_user
-WHERE t_user.date_register_ios >= '2017-05-14 22:00'
-AND   t_user.date_register_ios < '2017-05-15 22:00'
+WHERE t_user.date_register_ios >= '2017-06-23 00:00'
+AND   t_user.date_register_ios < '2017-06-24 00:00'
 AND   t_user.register_platform = 'ios'
 AND   (t_user.migrate_date_orphaned IS NULL OR datediff(s,t_user.date_register,t_user.migrate_date_orphaned) > 86400)
 AND   (is_tester IS NULL OR is_tester != 'true')
@@ -146,20 +183,23 @@ AND   t_user.user_category <> 'bot'
 ORDER BY value DESC
 LIMIT 200;
 
---data lab active users query
+--data lab active users query (but note doesn't seem to tie in with SPBO!!!)
 SELECT COUNT(DISTINCT log_session_start.user_id) / AVG(log_session_start.sample_ratio) AS value,
         1494799200 as timestamp
 FROM log_session_start
 LEFT JOIN t_user
 ON log_session_start.user_id = t_user.user_id
-WHERE log_session_start.datetime >= '2017-05-14 22:00'
-AND log_session_start.datetime < '2017-05-15 22:00'
+WHERE log_session_start.datetime >= '2017-04-28 00:00'
+AND log_session_start.datetime < '2017-04-29 00:00'
 AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
 AND platform = 'ios'
+AND register_ip_country = 'US'
 AND (is_tester is null or is_tester != 'true')
 AND t_user.user_category <> 'bot'
 ORDER BY value DESC
 LIMIT 200;
+
+
 
 --data lab revenues query
 SELECT COALESCE(SUM(t_transaction.amount_gross*0.7), 0) AS value,
@@ -168,12 +208,33 @@ FROM t_transaction
 LEFT JOIN log_session_start
 ON t_transaction.session_id = log_session_start.session_id
 AND t_transaction.user_id = log_session_start.user_id
-WHERE t_transaction.datetime >= '2017-05-14 22:00'
-AND t_transaction.datetime < '2017-05-15 22:00'
+WHERE t_transaction.datetime >= '2015-12-10 22:00:00'
+AND t_transaction.datetime < '2015-12-11 22:00:00'
 AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
-AND t_transaction.platform = 'ios'
-AND date_add('d', -1, '2017-05-14 22:00') <= log_session_start.datetime
-AND log_session_start.datetime <= '2017-05-15 22:00'
+AND t_transaction.platform = 'android'
+AND t_transaction.ip_country = 'FR'
+AND date_add('d', -1, '2015-12-10 22:00:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2015-12-11 22:00:00'
 ORDER BY value DESC
 LIMIT 200;
 
+SELECT COALESCE(sum(t_transaction.amount_gross*0.7), 0) AS net_value
+FROM t_transaction
+LEFT JOIN log_session_start
+ON t_transaction.session_id = log_session_start.session_id
+AND t_transaction.user_id = log_session_start.user_id
+LEFT JOIN t_user
+ON t_transaction.user_id = t_user.user_id
+WHERE t_transaction.datetime >= '2016-04-29 22:00:00'
+AND t_transaction.datetime < '2016-04-30 22:00:00'
+--AND t_user.user_category <> 'hacker' AND t_user.user_category = 'player'
+AND (t_user.register_source is NULL or lower(t_user.register_source) like '%organic%' or t_user.register_source = '')
+AND (t_user.migrate_date_orphaned is null or datediff(s, t_user.date_register, t_user.migrate_date_orphaned) > 86400)
+AND (t_transaction.offer != 'earncash' OR t_transaction.offer IS NULL)
+AND t_transaction.platform = 'ios'
+AND t_transaction.ip_country = 'CA'
+AND (t_user.is_tester is null or t_user.is_tester != 'true')
+AND t_user.user_category <> 'bot'
+AND date_add('d', -1, '2016-04-29 22:00:00') <= log_session_start.datetime
+AND log_session_start.datetime <= '2016-04-30 22:00:00'
+LIMIT 200;
