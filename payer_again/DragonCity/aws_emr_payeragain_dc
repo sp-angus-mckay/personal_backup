@@ -1,0 +1,25 @@
+aws emr create-cluster --name "recommender_ml_prod" \
+--applications Name=Hadoop Name=Spark \
+--release-label emr-5.3.0 \
+--service-role EMR_DefaultRole \
+--ec2-attributes \
+SubnetId=subnet-dfb303f2,\
+InstanceProfile=EMR_EC2_DefaultRole,\
+KeyName=xmaresma,\
+AdditionalMasterSecurityGroups=[sg-08b89d75],\
+AdditionalSlaveSecurityGroups=[sg-08b89d75] \
+--instance-groups \
+InstanceGroupType=MASTER,InstanceCount=1,InstanceType=r3.4xlarge \
+InstanceGroupType=CORE,InstanceCount=3,InstanceType=r3.2xlarge \
+--region us-east-1 \
+--bootstrap-actions \
+Name="R packages",\
+Path="s3://sp-dataproduct/recommender_ml/production/recommender_ml_bootstrap.sh",\
+Args=[--sparkr] \
+--steps \
+Name="Recommender ML - Storage and battles",\
+Type=CUSTOM_JAR,ActionOnFailure=TERMINATE_JOB_FLOW,\
+Jar=s3://us-east-1.elasticmapreduce/libs/script-runner/script-runner.jar,\
+Args=["s3://sp-dataproduct/recommender_ml/production/recommender_ml_step.sh"] \
+--log-uri s3://sp-dataproduct/logs/ \
+--auto-terminate
